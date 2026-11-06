@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playlist Downloader</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2b; --line:#26334a; --muted:#93a4bd; --text:#edf3ff; --accent:#6c8cff; --green:#39c98a; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; padding:32px 16px; background:radial-gradient(ellipse at top,#172647 0%,var(--bg) 55%); color:var(--text); font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+    .wrap { max-width:850px; margin:0 auto; }
+    header { text-align:center; margin:20px 0 28px; }
+    .mark { display:inline-grid; place-items:center; width:54px;height:54px;border:1px solid #40547a;border-radius:17px;background:#1b2b4d;font-size:25px; }
+    h1 { margin:13px 0 5px;font-size:clamp(26px,5vw,38px);letter-spacing:-1px; }
+    .sub { color:var(--muted);margin:0; }
+    .panel { background:rgba(18,26,43,.94);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 18px 55px #0005; }
+    label { display:block;font-weight:650;margin:0 0 8px; }
+    input,select { width:100%;border:1px solid var(--line);border-radius:10px;background:#0b1324;color:var(--text);padding:12px 13px;font:inherit;outline:none; }
+    input:focus,select:focus { border-color:var(--accent);box-shadow:0 0 0 3px #6c8cff22; }
+    .urlrow { display:flex;gap:10px; }
+    .urlrow input { flex:1;min-width:0; }
+    button,.btn { border:0;border-radius:10px;padding:12px 17px;background:var(--accent);color:white;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px; }
+    button:disabled { opacity:.55;cursor:wait; }
+    .grid { display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:19px; }
+    .field { min-width:0; }
+    .hint { color:var(--muted);font-size:12px;margin-top:6px; }
+    .actions { display:flex;gap:10px;flex-wrap:wrap;margin-top:19px; }
+    .secondary { background:#263651; }
+    .status { display:none;margin-top:20px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#0c1527; }
+    .status.show { display:block; }
+    .statushead { display:flex;justify-content:space-between;gap:12px;align-items:center; }
+    .muted { color:var(--muted); }
+    .bar { height:9px;border-radius:20px;background:#26334a;overflow:hidden;margin:13px 0 8px; }
+    .bar span { display:block;height:100%;width:4%;background:linear-gradient(90deg,#6c8cff,#39c98a);transition:width .3s; }
+    .list { margin-top:20px;display:none; }
+    .list.show { display:block; }
+    .video { display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #26334a; }
+    .video input { width:auto; }
+    .video .name { flex:1;min-width:0;overflow-wrap:anywhere; }
+    .video small { color:var(--muted);white-space:nowrap; }
+    .downloads { display:grid;gap:8px;margin-top:12px; }
+    .downloads a { color:#a9bdff;overflow-wrap:anywhere; }
+    .error { color:#ff9c9c;white-space:pre-wrap;overflow-wrap:anywhere; }
+    footer { text-align:center;color:var(--muted);font-size:12px;margin:18px 0; }
+    @media(max-width:650px) { .grid { grid-template-columns:1fr; }.urlrow { flex-direction:column; }.panel { padding:18px; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark">↓</div>
+    <h1>Playlist Downloader</h1>
+    <p class="sub">Preview videos, choose quality, and download your selection.</p>
+  </header>
+
+  <main class="panel">
+    <label for="url">YouTube video or playlist URL</label>
+    <div class="urlrow">
+      <input id="url" type="url" placeholder="https://www.youtube.com/playlist?list=..." autocomplete="url">
+      <button id="previewBtn" type="button">Preview playlist</button>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label for="mode">Download mode</label>
+        <select id="mode">
+          <option value="playlist">Complete playlist</option>
+          <option value="single">Single video</option>
+          <option value="range">Custom range</option>
+          <option value="resume">Resume from video number</option>
+          <option value="selected">Selected videos</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="quality">Video quality</label>
+        <select id="quality">
+          <option value="1080">1080p minimum</option>
+          <option value="1440">1440p minimum</option>
+          <option value="2160">4K minimum</option>
+          <option value="best">Best available</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="package">Output</label>
+        <select id="package">
+          <option value="zip">One ZIP file</option>
+          <option value="individual">Individual files</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid" id="selectionRow" style="display:none;grid-template-columns:1fr;">
+      <div class="field">
+        <label id="selectionLabel" for="selection">Playlist item numbers</label>
+        <input id="selection" type="text" placeholder="e.g. 1-5 or 1,3,7">
+        <div class="hint">Use playlist positions, not video IDs.</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="downloadBtn" type="button">Start download</button>
+      <button id="selectAllBtn" type="button" class="secondary" style="display:none">Select all</button>
+    </div>
+
+    <section id="playlist" class="list">
+      <div class="statushead">
+        <strong id="playlistTitle">Playlist preview</strong>
+        <span id="playlistCount" class="muted"></span>
+      </div>
+      <div id="videoList"></div>
+      <p class="hint">For “Selected videos”, tick the videos you want before starting.</p>
+    </section>
+
+    <section id="status" class="status">
+      <div class="statushead">
+        <strong id="statusTitle">Preparing…</strong>
+        <span id="statusState" class="muted">Queued</span>
+      </div>
+      <div class="bar"><span id="progressBar"></span></div>
+      <div class="statushead muted">
+        <span id="progressText">Waiting for download to start</span>
+        <span id="speedText"></span>
+      </div>
+      <div id="message" class="hint"></div>
+      <div id="downloadLinks" class="downloads"></div>
+    </section>
+    <p id="error" class="error" role="alert"></p>
+  </main>
+
+  <footer>Runs on the server hosting this app. Only download content you have permission to save.</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let previewData = null;
+let pollingTimer = null;
+
+function showError(message) { $("error").textContent = message || ""; }
+function updateMode() {
+  const mode = $("mode").value;
+  const needsInput = ["range", "resume"].includes(mode);
+  $("selectionRow").style.display = needsInput ? "grid" : "none";
+  $("selectAllBtn").style.display = mode === "selected" && previewData ? "inline-flex" : "none";
+  $("selectionLabel").textContent = mode === "resume" ? "Start from playlist video number" : "Playlist item numbers";
+  $("selection").placeholder = mode === "resume" ? "e.g. 12" : "e.g. 1-5 or 1,3,7";
+}
+$("mode").addEventListener("change", updateMode);
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds)) return "";
+  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = Math.floor(seconds % 60);
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${m}:${String(s).padStart(2,"0")}`;
+}
+
+$("previewBtn").addEventListener("click", async () => {
+  showError("");
+  const url = $("url").value.trim();
+  if (!url) return showError("Paste a YouTube URL first.");
+  $("previewBtn").disabled = true;
+  $("previewBtn").textContent = "Loading…";
+  try {
+    const response = await fetch("/api/preview", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({url})
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Preview failed.");
+    previewData = data;
+    $("playlist").classList.add("show");
+    $("playlistTitle").textContent = data.title;
+    $("playlistCount").textContent = `${data.count} videos`;
+    $("videoList").innerHTML = "";
+    data.videos.forEach(video => {
+      const row = document.createElement("label");
+      row.className = "video";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox"; checkbox.className = "video-check";
+      checkbox.value = video.index; checkbox.checked = true;
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = `${video.index}. ${video.title}`;
+      const duration = document.createElement("small");
+      duration.textContent = formatDuration(video.duration);
+      row.append(checkbox, name, duration);
+      $("videoList").append(row);
+    });
+    updateMode();
+  } catch (error) { showError(error.message); }
+  finally { $("previewBtn").disabled = false; $("previewBtn").textContent = "Preview playlist"; }
+});
+
+$("selectAllBtn").addEventListener("click", () => {
+  document.querySelectorAll(".video-check").forEach(box => box.checked = true);
+});
+
+$("downloadBtn").addEventListener("click", async () => {
+  showError("");
+  const url = $("url").value.trim();
+  const mode = $("mode").value;
+  let selection = $("selection").value.trim();
+
+  if (!url) return showError("Paste a YouTube URL first.");
+  if (mode === "selected") {
+    selection = [...document.querySelectorAll(".video-check:checked")].map(x => x.value).join(",");
+    if (!selection) return showError("Select at least one video.");
+  }
+  if (["range", "resume"].includes(mode) && !selection) {
+    return showError("Enter the playlist video number or range.");
+  }
+  if (mode === "resume" && !/^\d+$/.test(selection)) {
+    return showError("Enter one starting video number, such as 12.");
+  }
+
+  $("downloadBtn").disabled = true;
+  $("downloadBtn").textContent = "Starting…";
+  $("status").classList.add("show");
+  $("statusTitle").textContent = "Starting download";
+  $("statusState").textContent = "Queued";
+  $("progressText").textContent = "Waiting for server";
+  $("progressBar").style.width = "3%";
+  $("downloadLinks").innerHTML = "";
+  $("message").textContent = "";
+
+  try {
+    const response = await fetch("/api/download", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({url, mode, selection, quality:$("quality").value, package:$("package").value})
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not start download.");
+    pollStatus(data.job_id);
+  } catch (error) {
+    showError(error.message);
+    $("downloadBtn").disabled = false;
+    $("downloadBtn").textContent = "Start download";
+  }
+});
+
+async function pollStatus(jobId) {
+  if (pollingTimer) clearInterval(pollingTimer);
+  const poll = async () => {
+    try {
+      const response = await fetch(`/api/status/${jobId}`);
+      const job = await response.json();
+      if (!response.ok) throw new Error(job.error || "Could not read job status.");
+
+      $("statusTitle").textContent = job.title || job.message || "Working…";
+      $("statusState").textContent = job.state || "Working";
+      $("progressText").textContent = [job.percent, job.eta ? `ETA ${job.eta}` : ""].filter(Boolean).join(" · ") || job.message || "";
+      $("speedText").textContent = job.speed || "";
+      $("message").textContent = job.message || "";
+
+      const match = (job.percent || "").match(/[\d.]+/);
+      if (match) $("progressBar").style.width = `${Math.min(100, Math.max(3, Number(match[0])))}%`;
+
+      if (job.state === "complete") {
+        $("progressBar").style.width = "100%";
+        $("downloadLinks").innerHTML = "";
+        if ($("package").value === "zip") {
+          const link = document.createElement("a");
+          link.href = `/download/${jobId}/zip`;
+          link.textContent = "Download ZIP";
+          $("downloadLinks").append(link);
+        } else {
+          (job.files || []).forEach((file, index) => {
+            const link = document.createElement("a");
+            link.href = `/download/${jobId}/${index}`;
+            link.textContent = `Download ${file.name}`;
+            $("downloadLinks").append(link);
+          });
+        }
+        clearInterval(pollingTimer);
+        $("downloadBtn").disabled = false;
+        $("downloadBtn").textContent = "Start another download";
+      } else if (job.state === "error") {
+        clearInterval(pollingTimer);
+        showError(job.message || "Download failed.");
+        $("downloadBtn").disabled = false;
+        $("downloadBtn").textContent = "Try again";
+      }
+    } catch (error) {
+      clearInterval(pollingTimer);
+      showError(error.message);
+      $("downloadBtn").disabled = false;
+      $("downloadBtn").textContent = "Try again";
+    }
+  };
+  await poll();
+  pollingTimer = setInterval(poll, 1500);
+}
+</script>
+</body>
+</html>
