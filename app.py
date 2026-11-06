@@ -167,7 +167,7 @@ def download_worker(job_id, url, mode, selection, quality, package):
         "merge_output_format": "mp4",
         "outtmpl": output_template,
         "noplaylist": mode == "single",
-        "ignoreerrors": True,
+        "ignoreerrors": False,
         "quiet": True,
         "no_warnings": False,
         "retries": 10,
@@ -175,7 +175,6 @@ def download_worker(job_id, url, mode, selection, quality, package):
         "continuedl": True,
         "overwrites": False,
         "progress_hooks": [progress_hook(job_id)],
-        "download_archive": str(DOWNLOAD_ROOT / "downloaded_archive.txt"),
     }
 
     if mode in {"range", "resume", "selected"}:
