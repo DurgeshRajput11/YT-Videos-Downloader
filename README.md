@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # YouTube Playlist Downloader (Flask)
 
 A small Flask web app with playlist preview, single video, full playlist, range,
@@ -50,3 +51,6 @@ depends on the host; a Docker deployment is the most reliable way to bundle both
   yt-dlp help with compatibility, but cannot guarantee every video will download.
 - Use only for content you own or are authorized to download, and comply with
   applicable platform terms and copyright law.
+=======
+**PYTHON SCRIPT TO DOWNLOAD YT VIDEOS UPTO 1080P**
+>>>>>>> 28f7f11fa4d8a4e826f16e6b043e4216a66e82b4
