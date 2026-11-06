@@ -1,3 +1,4 @@
+
 import yt_dlp
 import os
 from pathlib import Path
@@ -20,7 +21,7 @@ def progress_hook(d):
 
 def get_ydl_opts(output_folder, playlist_items=None):
     opts = {
-        'format': 'bestvideo+bestaudio/best',
+        'format': 'bestvideo[height>=1080]+bestaudio/best[height>=1080]',
 
         'merge_output_format': 'mp4',
 
@@ -40,12 +41,8 @@ def get_ydl_opts(output_folder, playlist_items=None):
         'retries': 10,
         'fragment_retries': 10,
 
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android']
-            }
-        },
-
+        'continuedl': True,
+        'overwrites': False,
     }
 
     if playlist_items:
@@ -65,13 +62,18 @@ def get_playlist_info(url):
             info = ydl.extract_info(url, download=False)
 
             if 'entries' in info:
+                entries = [
+                    entry for entry in info['entries']
+                    if entry is not None
+                ]
+
                 print("\n" + "=" * 60)
                 print(f"Playlist : {info.get('title', 'Unknown')}")
                 print(f"Channel  : {info.get('uploader', 'Unknown')}")
-                print(f"Videos   : {len(info['entries'])}")
+                print(f"Videos   : {len(entries)}")
                 print("=" * 60 + "\n")
 
-                return len(info['entries'])
+                return len(entries)
 
             else:
                 print("Single video detected.")
@@ -125,6 +127,10 @@ def download_partial_playlist(
     end,
     output_folder="downloads"
 ):
+    if start < 1 or end < start:
+        print("Invalid video range.")
+        return
+
     print(f"\nDownloading videos {start} to {end}...\n")
 
     Path(output_folder).mkdir(parents=True, exist_ok=True)
@@ -147,6 +153,7 @@ def download_partial_playlist(
 def main():
     print("=" * 60)
     print("        ADVANCED YOUTUBE PLAYLIST DOWNLOADER")
+    print("             MINIMUM QUALITY: 1080p")
     print("=" * 60)
 
     print("\nOptions:")
@@ -164,14 +171,11 @@ def main():
             url = input("\nEnter playlist URL: ").strip()
 
             output = (
-                input(
-                    "Enter output folder (default: downloads): "
-                ).strip()
+                input("Enter output folder (default: downloads): ").strip()
                 or "downloads"
             )
 
             get_playlist_info(url)
-
             download_complete_playlist(url, output)
 
         elif option == '2':
@@ -181,53 +185,38 @@ def main():
                 input("Enter video number to resume from: ")
             )
 
+            if start_from < 1:
+                print("Video number must be at least 1.")
+                return
+
             output = (
-                input(
-                    "Enter output folder (default: downloads): "
-                ).strip()
+                input("Enter output folder (default: downloads): ").strip()
                 or "downloads"
             )
 
             get_playlist_info(url)
-
-            resume_download(
-                url,
-                start_from,
-                output
-            )
+            resume_download(url, start_from, output)
 
         elif option == '3':
             url = input("\nEnter playlist URL: ").strip()
 
-            start = int(
-                input("Enter starting video number: ")
-            )
-
-            end = int(
-                input("Enter ending video number: ")
-            )
+            start = int(input("Enter starting video number: "))
+            end = int(input("Enter ending video number: "))
 
             output = (
-                input(
-                    "Enter output folder (default: downloads): "
-                ).strip()
+                input("Enter output folder (default: downloads): ").strip()
                 or "downloads"
             )
 
             get_playlist_info(url)
 
             download_partial_playlist(
-                url,
-                start,
-                end,
-                output
+                url, start, end, output
             )
 
         elif option == '4':
             url = input("\nEnter playlist URL: ").strip()
-
             count = get_playlist_info(url)
-
             print(f"\nTotal videos: {count}")
 
         else:
